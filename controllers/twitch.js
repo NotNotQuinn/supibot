@@ -51,6 +51,15 @@ module.exports = class TwitchController extends require("./template.js") {
 				Expression: "0 0 * * * *",
 				Description: "Attempts to reconnect channels on Twitch that the bot has been unable to join - most likely because of a ban.",
 				Code: async () => {
+					// If a channel has already been re-joined in the meantime, don't attempt to join it again.
+					// This could result in a double connection
+					for (const channel of this.failedJoinChannels) {
+						if (channel.sessionData?.joined) {
+							console.warn("Prevented channel from double-joining", { channel });
+							this.failedJoinChannels.delete(channel);
+						}
+					}
+
 					const results = await Promise.allSettled(
 						[...this.failedJoinChannels].map(i => this.client.join(i))
 					);
@@ -180,14 +189,28 @@ module.exports = class TwitchController extends require("./template.js") {
 			}
 		});
 
-		client.on("JOIN", ({ channelName, joinedUsername }) => {
-			// @todo: Could this possibly be a part of channelData? So that it is platform-independent...
-			if (joinedUsername === this.platform.Self_Name.toLowerCase()) {
-				const { channels, string } = this.platform.Data.reconnectAnnouncement;
-				if (channels && string && channels.includes(channelName)) {
-					client.say(channelName, string);
-				}
+		client.on("JOIN", async ({ channelName, joinedUsername }) => {
+			if (joinedUsername !== this.platform.Self_Name.toLowerCase()) {
+				return;
 			}
+
+			const channelData = sb.Channel.get(channelName);
+			channelData.sessionData.joined = true;
+
+			// @todo: Could this possibly be a part of channelData? So that it is platform-independent...
+			const { channels, string } = this.platform.Data.reconnectAnnouncement;
+			if (channels && string && channels.includes(channelName)) {
+				await client.say(channelName, string);
+			}
+		});
+
+		client.on("PART", ({ channelName, joinedUsername }) => {
+			if (joinedUsername !== this.platform.Self_Name.toLowerCase()) {
+				return;
+			}
+
+			const channelData = sb.Channel.get(channelName);
+			channelData.sessionData.joined = false;
 		});
 
 		client.on("USERSTATE", async (messageObject) => {
@@ -810,19 +833,29 @@ module.exports = class TwitchController extends require("./template.js") {
 	 * @returns {Promise<TwitchEmoteSetDataObject[]>}
 	 */
 	static async fetchTwitchEmotes (sets) {
-		const { statusCode, body } = await sb.Got("Leppunen", {
-			url: "twitch/emoteset",
-			searchParams: {
-				set_id: sets.join(",")
-			}
-		});
+		const data = [];
+		const sliceLength = 50;
+		let index = 0;
 
-		if (statusCode !== 200) {
-			console.warn("Fetching Twitch emotes failed", body);
-			return [];
+		while (index < sets.length) {
+			const slice = sets.slice(index, index + sliceLength);
+			const { statusCode, body } = await sb.Got("Leppunen", {
+				url: "twitch/emoteset",
+				searchParams: {
+					set_id: slice.join(",")
+				}
+			});
+
+			if (statusCode !== 200) {
+				console.warn("Fetching Twitch emotes failed", { statusCode, body, slice, sets });
+				return [];
+			}
+
+			index += sliceLength;
+			data.push(...body);
 		}
 
-		return body.map(set => ({
+		return data.map(set => ({
 			ID: set.setID,
 			channel: {
 				name: set.channelName,
