@@ -7,6 +7,7 @@ VALUES
 ('CYTUBE_BOT_PASSWORD',NULL,'string',NULL,1,0,NULL),
 ('DISCORD_BOT_TOKEN',NULL,'string',NULL,1,0,NULL),
 ('DEFAULT_BANPHRASE_API_RESPONSE','[Banphrased]','string',NULL,0,1,'If a banphrase API rejects a message, and no Banphrase object exists to react to that, this message will be printed instead.'),
+('DEFAULT_PENDING_TIMEOUT',300000,'number',NULL,0,0,NULL),
 ('DEFAULT_USER_AGENT','Custom fork of Supibot: github.com/supinic/supibot','string',NULL,0,0,NULL),
 ('LINK_REGEX','/(https?:\\/\\/)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-z]{2,6}\\b([-a-zA-Z0-9@:%_\\+.~#?&\\/\\/=]*)/gi','regex',NULL,0,1,'Determines if a message contains a website link.'),
 ('LOG_COMMAND_ENABLED','1','boolean',NULL,0,1,'If true, every successful command execution will be logged into chat_data.Command_Execution.'),
@@ -25,5 +26,8 @@ VALUES
 ('PRIVATE_MESSAGE_COMMAND_FILTERED','That command is not available via private messages.','string',NULL,0,1,'Printed when a command not available in private messages is used there.'),
 ('PRIVATE_MESSAGE_NO_COMMAND','That command does not exist. Please use the "commands" command to get a list.','string',NULL,0,1,'Printed when a private message has the right command prefix but a command has not been found.'),
 ('PRIVATE_MESSAGE_UNRELATED','Invalid command prefix.','string',NULL,0,1,'Printed when a private message does not have the right comand prefix.'),
+('SUPIBOT_API_PORT','80','number',NULL,0,0,NULL),
+('SUPIBOT_API_SECURE','0','boolean',NULL,0,0,NULL),
+('TWITCH_CLIENT_ID',NULL,'string',NULL,1,0,NULL),
 ('TWITCH_OAUTH',NULL,'string',NULL,1,0,NULL),
 ('WHITESPACE_REGEX','/[\\u034f\\u2800\\u{E0000}\\u180e\\ufeff\\u2000-\\u200d\\u206D]/gu','regex',NULL,0,0,NULL);

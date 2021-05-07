@@ -156,7 +156,7 @@ module.exports = class DiscordController extends require("./template.js") {
 				};
 
 				this.resolveUserMessage(channelData, userData, msg);
-				sb.Logger.push(msg, userData, channelData);
+				sb.Logger.push(sb.Utils.wrapString(msg, this.platform.Message_Limit), userData, channelData);
 
 				if (channelData.Mode !== "Read") {
 					sb.AwayFromKeyboard.checkActive(userData, channelData);
@@ -353,7 +353,12 @@ module.exports = class DiscordController extends require("./template.js") {
 	}
 
 	parseMessage (messageObject) {
-		const args = messageObject.content.split(" ");
+		const links = messageObject.attachments.map(i => i.proxyURL);
+		const args = [
+			...messageObject.content.split(" "),
+			...links
+		];
+
 		for (let i = 0; i < args.length; i++) {
 			const match = args[i].match(/<@!?(\d+)>/);
 			if (match) {
@@ -365,7 +370,6 @@ module.exports = class DiscordController extends require("./template.js") {
 		}
 
 		let index = 0;
-		const links = messageObject.attachments.map(i => i.proxyURL);
 		let targetMessage = messageObject.cleanContent.replace(/\n/g, " ");
 		while (targetMessage.length < this.platform.Message_Limit && index < links.length) {
 			targetMessage += " " + links[index];
@@ -384,6 +388,19 @@ module.exports = class DiscordController extends require("./template.js") {
 			privateMessage: Boolean(messageObject.channel.type === "dm"),
 			commandArguments: args
 		};
+	}
+
+	async isUserChannelOwner (channelData, userData) {
+		if (userData === null || channelData === null) {
+			return false;
+		}
+
+		const channel = await this.client.channels.fetch(channelData.Name);
+		if (!channel || !channel.guild) {
+			return false;
+		}
+
+		return (channel.guild.owner === userData.Discord_ID);
 	}
 
 	async fetchUserList (channelIdentifier) {
