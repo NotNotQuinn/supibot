@@ -39,6 +39,8 @@ module.exports = class TwitchController extends require("./template.js") {
 
 		this.availableEmotes = [];
 		this.availableEmoteSets = [];
+		this.emoteFetchPromise = null;
+		this.emoteFetchTimeout = 0;
 
 		this.initListeners();
 
@@ -220,11 +222,19 @@ module.exports = class TwitchController extends require("./template.js") {
 			if (!this.platform.Data.updateAvailableBotEmotes) {
 				return;
 			}
+			else if (this.emoteFetchPromise || this.emoteFetchTimeout > sb.Date.now()) {
+				return;
+			}
 
 			const incomingEmoteSets = messageObject.emoteSets;
-			if (incomingEmoteSets.sort().join(",") !== this.availableEmoteSets.sort().join(",")) {
+			if (this.availableEmotes.length === 0 || incomingEmoteSets.sort().join(",") !== this.availableEmoteSets.sort().join(",")) {
 				this.availableEmoteSets = incomingEmoteSets;
-				this.availableEmotes = await TwitchController.fetchTwitchEmotes(this.availableEmoteSets);
+
+				this.emoteFetchPromise = TwitchController.fetchTwitchEmotes(this.availableEmoteSets);
+				this.availableEmotes = await this.emoteFetchPromise;
+				this.emoteFetchPromise = null;
+
+				this.emoteFetchTimeout = sb.Date.now() + (this.platform.Data.emoteFetchTimeout ?? 10_000);
 			}
 		});
 
@@ -837,7 +847,7 @@ module.exports = class TwitchController extends require("./template.js") {
 	 */
 	static async fetchTwitchEmotes (sets) {
 		const data = [];
-		const sliceLength = 50;
+		const sliceLength = 100;
 		let index = 0;
 
 		while (index < sets.length) {
