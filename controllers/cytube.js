@@ -78,7 +78,7 @@ class CytubeClient {
 			// Need to figure out a good limit, or a better solution overall.
 			// On login, cytube sends a couple of history messages - skip those
 			const difference = (sb.Date.now() - data.time);
-			if (data.time && difference > 60.0e3) {
+			if (data.time && difference > 30.0e3) {
 				return;
 			}
 
@@ -160,6 +160,10 @@ class CytubeClient {
 				channel: this.channelData,
 				platform: this.controller.platform
 			});
+
+			if (data.username === this.controller.platform.Self_Name) {
+				return;
+			}
 
 			// Handle commands if the message starts with the command prefix
 			if (sb.Command.is(msg)) {
