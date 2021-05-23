@@ -134,7 +134,7 @@ module.exports = class TwitchController extends require("./template.js") {
 								since: new sb.Date(stream.created_at),
 								status: stream.channel.status,
 								viewers: stream.viewers,
-								quality: stream.video_height + "p",
+								quality: `${stream.video_height}p`,
 								fps: stream.average_fps,
 								delay: stream.delay
 							};
@@ -240,7 +240,7 @@ module.exports = class TwitchController extends require("./template.js") {
 			}
 		});
 
-		client.on("NOTICE", async ({channelName, messageID, ...rest}) => {
+		client.on("NOTICE", async ({ channelName, messageID, ...rest }) => {
 			if (!messageID) {
 				return;
 			}
@@ -293,7 +293,7 @@ module.exports = class TwitchController extends require("./template.js") {
 		client.on("USERNOTICE", (message) => this.handleUserNotice(message));
 
 		client.on("CLEARCHAT", (messageObject) => {
-			const {targetUsername: username, channelName, reason = null} = messageObject;
+			const { targetUsername: username, channelName, reason = null } = messageObject;
 
 			if (messageObject.isPermaban()) {
 				this.handleBan(username, channelName, reason, null);
@@ -301,11 +301,9 @@ module.exports = class TwitchController extends require("./template.js") {
 			else if (messageObject.isTimeout()) {
 				this.handleBan(username, channelName, reason, messageObject.banDuration);
 			}
-			else if (messageObject.wasChatCleared()) {
-				if (this.platform.Logging.clearChats) {
-					const channelData = sb.Channel.get(channelName, this.platform);
-					sb.SystemLogger.send("Twitch.Clearchat", null, channelData);
-				}
+			else if (messageObject.wasChatCleared() && this.platform.Logging.clearChats) {
+				const channelData = sb.Channel.get(channelName, this.platform);
+				sb.SystemLogger.send("Twitch.Clearchat", null, channelData);
 			}
 		});
 	}
@@ -354,11 +352,11 @@ module.exports = class TwitchController extends require("./template.js") {
 		if (this.evasion[channelName] === message) {
 			const { sameMessageEvasionCharacter: char } = this.platform.Data;
 			if (message.includes(char)) {
-				const regex = new RegExp(char + "$");
+				const regex = new RegExp(`${char}$`);
 				message = message.replace(regex, "");
 			}
 			else {
-				message += " " + char;
+				message += ` ${char}`;
 			}
 		}
 
@@ -386,7 +384,7 @@ module.exports = class TwitchController extends require("./template.js") {
 	 * @returns {Promise<void>}
 	 */
 	async handleMessage (messageObject) {
-		const {ircTags, badges, bits, channelName, messageText: message, senderUserID, senderUsername} = messageObject;
+		const { ircTags, badges, bits, channelName, messageText: message, senderUserID, senderUsername } = messageObject;
 		const messageType = (messageObject instanceof DankTwitch.WhisperMessage)
 			? "whisper"
 			: "message";
@@ -435,7 +433,7 @@ module.exports = class TwitchController extends require("./template.js") {
 			channelData = sb.Channel.get(channelName, this.platform);
 
 			if (!channelData) {
-				console.error("Cannot find channel " + channelName);
+				console.error(`Cannot find channel ${channelName}`);
 				return;
 			}
 
@@ -458,12 +456,6 @@ module.exports = class TwitchController extends require("./template.js") {
 				sb.Logger.push(message, userData, channelData);
 			}
 
-			// If channel is read-only, do not proceed with any processing
-			// Such as custom codes, un-AFK, reminders, commands (...)
-			if (channelData.Mode === "Read") {
-				return;
-			}
-
 			channelData.events.emit("message", {
 				event: "message",
 				message,
@@ -472,6 +464,12 @@ module.exports = class TwitchController extends require("./template.js") {
 				platform: this.platform,
 				data: messageData
 			});
+
+			// If channel is read-only, do not proceed with any processing
+			// Such as un-AFK message, reminders, commands, ...
+			if (channelData.Mode === "Read") {
+				return;
+			}
 
 			sb.AwayFromKeyboard.checkActive(userData, channelData);
 			sb.Reminder.checkActive(userData, channelData);
@@ -483,7 +481,7 @@ module.exports = class TwitchController extends require("./template.js") {
 		}
 		else {
 			if (this.platform.Logging.whispers) {
-				sb.SystemLogger.send("Twitch.Other", "whisper: " + message, null, userData);
+				sb.SystemLogger.send("Twitch.Other", `whisper: ${message}`, null, userData);
 			}
 
 			this.resolveUserMessage(null, userData, message);
@@ -516,7 +514,7 @@ module.exports = class TwitchController extends require("./template.js") {
 		}
 
 		if (this.platform.Logging.bits && typeof bits !== "undefined" && bits !== null) {
-			sb.SystemLogger.send("Twitch.Other", bits + " bits", channelData, userData);
+			sb.SystemLogger.send("Twitch.Other", `${bits} bits`, channelData, userData);
 		}
 
 		if (!sb.Command.prefix) {
@@ -571,7 +569,7 @@ module.exports = class TwitchController extends require("./template.js") {
 
 		if (options.privateMessage || execution.replyWithPrivateMessage) {
 			const message = await this.prepareMessage(execution.reply, null, {
-				extraLength: ("/w " + userData.Name + " ").length,
+				extraLength: (`/w ${userData.Name} `).length,
 				skipBanphrases: true
 			});
 
@@ -699,7 +697,7 @@ module.exports = class TwitchController extends require("./template.js") {
 				});
 			}
 
-			if (this.platform.Logging.subs && !logSkipModes.includes(channelData.Mode))  {
+			if (this.platform.Logging.subs && !logSkipModes.includes(channelData.Mode)) {
 				sb.SystemLogger.send("Twitch.Sub", plans[subPlanName], channelData, userData);
 			}
 		}
@@ -734,13 +732,12 @@ module.exports = class TwitchController extends require("./template.js") {
 				});
 			}
 
-			if (this.platform.Logging.giftSubs && !logSkipModes.includes(channelData.Mode))  {
+			if (this.platform.Logging.giftSubs && !logSkipModes.includes(channelData.Mode)) {
 				const name = userData?.Name ?? "(anonymous)";
 				const logMessage = `${name} gifted a subscription to ${recipientData.Name}`;
 
 				sb.SystemLogger.send("Twitch.Giftsub", logMessage, channelData, userData);
 			}
-
 		}
 		else if (messageObject.isRaid()) {
 			const viewers = Number(messageObject.eventParams.viewercount);
@@ -766,7 +763,7 @@ module.exports = class TwitchController extends require("./template.js") {
 				const userData = await sb.User.get(senderUsername, false);
 				const channelData = sb.Channel.get(channelName, this.platform);
 
-				sb.SystemLogger.send("Twitch.Ritual", messageObject.systemMessage + " " + messageText, channelData, userData);
+				sb.SystemLogger.send("Twitch.Ritual", `${messageObject.systemMessage} ${messageText}`, channelData, userData);
 			}
 		}
 		else {
@@ -898,9 +895,9 @@ module.exports = class TwitchController extends require("./template.js") {
 				args: { channel: channelData.Name }
 			});
 		}
-		
+
 		const { statusCode, body: data } = await sb.Got({
-			url: "https://api.betterttv.net/3/cached/users/twitch/" + channelID,
+			url: `https://api.betterttv.net/3/cached/users/twitch/${channelID}`,
 			responseType: "json",
 			throwHttpErrors: false
 		});
@@ -931,7 +928,7 @@ module.exports = class TwitchController extends require("./template.js") {
 	 */
 	static async fetchChannelFFZEmotes (channelData) {
 		const { statusCode, body: data } = await sb.Got({
-			url: "https://api.frankerfacez.com/v1/room/" + channelData.Name,
+			url: `https://api.frankerfacez.com/v1/room/${channelData.Name}`,
 			responseType: "json",
 			throwHttpErrors: false
 		});

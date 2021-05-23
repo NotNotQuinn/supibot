@@ -138,6 +138,22 @@ class CytubeClient {
 				this.controller.resolveUserMessage(this.channelData, userData, msg);
 
 				sb.Logger.push(msg, userData, this.channelData);
+
+				this.channelData.events.emit("message", {
+					type: "message",
+					message: msg,
+					user: userData,
+					channel: this.channelData,
+					platform: this.controller.platform
+				});
+
+				if (this.channelData.Mode === "Read") {
+					return;
+				}
+				else if (data.username === this.controller.platform.Self_Name) {
+					return;
+				}
+
 				sb.AwayFromKeyboard.checkActive(userData, this.channelData);
 				sb.Reminder.checkActive(userData, this.channelData);
 
@@ -149,20 +165,8 @@ class CytubeClient {
 				this.controller.resolveUserMessage(null, userData, msg);
 
 				if (this.controller.platform.Logging.whispers) {
-					sb.SystemLogger.send("Cytube.Other", "PM: " + msg, this.channelData, userData);
+					sb.SystemLogger.send("Cytube.Other", `PM: ${msg}`, this.channelData, userData);
 				}
-			}
-
-			this.channelData.events.emit("message", {
-				type: "message",
-				message: msg,
-				user: userData,
-				channel: this.channelData,
-				platform: this.controller.platform
-			});
-
-			if (data.username === this.controller.platform.Self_Name) {
-				return;
 			}
 
 			// Handle commands if the message starts with the command prefix
@@ -200,7 +204,7 @@ class CytubeClient {
 			}
 
 			this.playlistData.push({
-				media: media,
+				media,
 				user: who,
 				uid: data.item.uid,
 				after: data.after
@@ -335,7 +339,7 @@ class CytubeClient {
 	 */
 	async send (message) {
 		const messageLimit = this.controller.platform.Message_Limit;
-		const lengthRegex = new RegExp(".{1," + messageLimit + "}", "g");
+		const lengthRegex = new RegExp(`.{1,${messageLimit}}`, "g");
 		let arr = message
 			.replace(/(\r?\n)/g, " ")
 			.replace(/\s{2,}/g, " ")
@@ -343,7 +347,7 @@ class CytubeClient {
 
 		if (arr.length > 3) {
 			arr = arr.slice(0, 3);
-			arr[2] = arr[2].slice(0, messageLimit - 3) +  "...";
+			arr[2] = `${arr[2].slice(0, messageLimit - 3)}...`;
 		}
 
 		let index = 0;
@@ -379,7 +383,7 @@ class CytubeClient {
 	async queue (type, videoID) {
 		this.client.socket.emit("queue", {
 			id: videoID,
-			type: type,
+			type,
 			pos: "end",
 			temp: true,
 			duration: undefined,

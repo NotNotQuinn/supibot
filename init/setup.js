@@ -9,14 +9,10 @@
 		input: process.stdin,
 		output: process.stdout
 	});
-	
+
 	// Prepare readline.question for promisification
-	rl.question[util.promisify.custom] = (question) => {
-		return new Promise((resolve) => {
-			rl.question(question, resolve);
-		});
-	};
-	
+	rl.question[util.promisify.custom] = (question) => new Promise((resolve) => rl.question(question, resolve));
+
 	const ask = util.promisify(rl.question);
 	const shell = util.promisify(exec);
 
@@ -25,7 +21,7 @@
 		["password", "MARIA_PASSWORD", "your_password"],
 		["host", "MARIA_HOST", "your_host"],
 		["port", "MARIA_PORT", "your_port"],
-		["socket", "MARIA_SOCKET_PATH", "your_socket"],
+		["socket", "MARIA_SOCKET_PATH", "your_socket"]
 	];
 
 	console.log("Checking for database access file...");
@@ -55,7 +51,7 @@
 		}
 		else {
 			const result = await ask(`Set up database ${name} - type a new value (or nothing to ${name === "port" ? "use 3306" : "keep empty"})\n`);
-			
+
 			if (!result) {
 				accessFileString = accessFileString.replace(implicit, "");
 				await fs.writeFile(accessFile, accessFileString);
@@ -64,7 +60,7 @@
 			else {
 				accessFileString = accessFileString.replace(implicit, result);
 				await fs.writeFile(accessFile, accessFileString);
-				console.log(`Variable for ${name} is now set up.`);		
+				console.log(`Variable for ${name} is now set up.`);
 			}
 		}
 	}
@@ -80,7 +76,7 @@
 
 	console.log("Setting up database structure...");
 	try {
-		await shell(packageManager + " run init-database");
+		await shell(`${packageManager} run init-database`);
 	}
 	catch (e) {
 		console.error("Database structure setup failed, aborting...", e);
@@ -95,11 +91,11 @@
 			whitelist: [
 				"objects/date",
 				"objects/error",
-				"singletons/query",
+				"singletons/query"
 			]
 		});
 	}
-	catch (e) {	
+	catch (e) {
 		console.error("Credentials/query builder load failed, aborting...", e);
 		process.exit(1);
 	}
@@ -112,7 +108,7 @@
 		cytube: { auth: "CYTUBE_BOT_PASSWORD", ID: 3 }
 	};
 
-	const prettyList = Object.keys(platformList).join(", ") + ", or keep line empty to finish";
+	const prettyList = `${Object.keys(platformList).join(", ")}, or keep line empty to finish`;
 	let platform = null;
 	let done = false;
 	let automatic = false;
@@ -128,24 +124,24 @@
 		}
 
 		platform = platform.toLowerCase();
-		
+
 		if (!platform) {
 			console.log("Platform setup finished.");
 			done = true;
 		}
 		else if (!Object.keys(platformList).includes(platform)) {
-			console.log("Platform not recognized, try again.");		
+			console.log("Platform not recognized, try again.");
 		}
 		else {
 			let pass = null;
-	
+
 			if (platform === "twitch") {
 				const accessToken = process.env.TWITCH_APP_ACCESS_TOKEN;
 				if (accessToken) {
 					pass = accessToken;
 				}
 			}
-			
+
 			if (pass === null) {
 				pass = await ask(`Enter authentication key for platform "${platform}":\n`);
 			}
@@ -154,11 +150,11 @@
 				console.log(`Skipped setting up ${platform}!`);
 				continue;
 			}
-				
+
 			const configRow = await sb.Query.getRow("data", "Config");
-			await configRow.load(platformList[platform].auth);	
+			await configRow.load(platformList[platform].auth);
 			configRow.values.Value = pass;
-			await configRow.save();		
+			await configRow.save();
 			console.log(`Authentication key for ${platform} set up successfully.`);
 
 			if (platformList[platform].extra) {
@@ -191,7 +187,7 @@
 					continue;
 				}
 			}
-			
+
 			const platformRow = await sb.Query.getRow("chat_data", "Platform");
 			await platformRow.load(platformList[platform].ID);
 			platformRow.values.Self_Name = botName;
@@ -217,21 +213,20 @@
 					done = true;
 					continue;
 				}
-				
+
 				const channelRow = await sb.Query.getRow("chat_data", "Channel");
 				channelRow.setValues({
 					Name: channelName,
 					Platform: platformList[platform].ID
 				});
 
-				await channelRow.save({ 
+				await channelRow.save({
 					ignore: true
 				});
-				
+
 				console.log(`Bot will now join ${platform} in channel ${channelName}.`);
-				
 			} while (!done);
-		}	
+		}
 		// Assume the user only wants to set up one platform when setting up automatically
 		if (automatic) {
 			done = true;
